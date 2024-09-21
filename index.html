@@ -1,5 +1,4 @@
 <!doctype html>
-<!-- Rest of your existing code -->
 <html>
   <head>
     <meta charset='utf-8'>
@@ -60,17 +59,18 @@
       let audio = new Audio('https://res.cloudinary.com/dlmobykjg/video/upload/v1726898877/amen-break-no-copyright-remake-120bpm-25924_nngqba.mp3');
       audio.loop = true;  // Loop the music if desired
 
-      // Having a really simple drop shadow underneath an object helps ground
-      // it in the world without adding much complexity.
+      // Simple drop shadow to help ground the object.
       let shadow = new DropShadowNode();
       vec3.set(shadow.scale, 0.15, 0.15, 0.15);
       arObject.addNode(shadow);
 
-      const MAX_FLOWERS = 30;
+      const MAX_FLOWERS = 1;
       let flowers = [];
 
       // Ensure the background is transparent for AR.
       scene.clear = false;
+
+      let sunflowerPlaced = false;  // Track if the sunflower is placed
 
       function initXR() {
         xrButton = new WebXRButton({
@@ -114,10 +114,6 @@
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // In this sample we want to cast a ray straight out from the viewer's
-        // position and render a reticle where it intersects with a real world
-        // surface. To do this we first get the viewer space, then create a
-        // hitTestSource that tracks it.
         session.requestReferenceSpace('viewer').then((refSpace) => {
           xrViewerSpace = refSpace;
           session.requestHitTestSource({ space: xrViewerSpace }).then((hitTestSource) => {
@@ -130,9 +126,6 @@
 
           session.requestAnimationFrame(onXRFrame);
         });
-
-        // Start playing audio when session starts
-        audio.play();
       }
 
       function onEndSession(session) {
@@ -140,10 +133,6 @@
         xrHitTestSource.cancel();
         xrHitTestSource = null;
         session.end();
-
-        // Stop the music when the session ends
-        audio.pause();
-        audio.currentTime = 0; // Reset playback
       }
 
       function onSessionEnded(event) {
@@ -151,33 +140,36 @@
       }
 
       const MAX_ANCHORED_OBJECTS = 1;
-      if(MAX_ANCHORED_OBJECTS > 1){
-       reticle=!visible
-      }
       let anchoredObjects = [];
       function addAnchoredObjectsToScene(anchor) {
-        let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
-        scene.addNode(flower);
-        anchoredObjects.push({
-          anchoredObject: flower,
-          anchor: anchor
-        });
+        if (!sunflowerPlaced) {
+          let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
+          scene.addNode(flower);
+          anchoredObjects.push({
+            anchoredObject: flower,
+            anchor: anchor
+          });
 
-        // For performance reasons if we add too many objects start
-        // removing the oldest ones to keep the scene complexity
-        // from growing too much.
-        if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
-          let objectToRemove = anchoredObjects.shift();
-          scene.removeNode(objectToRemove.anchoredObject);
-          objectToRemove.anchor.delete();
+          // Set the sunflower placed flag to true and hide the reticle
+          sunflowerPlaced = true;
+          reticle.visible = false;
+
+          // Start playing audio after the sunflower is placed
+          audio.play();
+
+          // Remove old objects if we exceed the limit
+          if (anchoredObjects.length > MAX_ANCHORED_OBJECTS) {
+            let objectToRemove = anchoredObjects.shift();
+            scene.removeNode(objectToRemove.anchoredObject);
+            objectToRemove.anchor.delete();
+          }
         }
       }
 
       let rayOrigin = vec3.create();
       let rayDirection = vec3.create();
       function onSelect(event) {
-        if (reticle.visible) {
-          // Create an anchor.
+        if (reticle.visible && !sunflowerPlaced) {
           reticleHitTestResult.createAnchor().then((anchor) => {
             addAnchoredObjectsToScene(anchor);
           }, (error) => {
@@ -186,28 +178,28 @@
         }
       }
 
-      // Called every time a XRSession requests that a new frame be drawn.
+      // Called every time a XRSession requests a new frame.
       function onXRFrame(t, frame) {
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
 
-        reticle.visible = false;
+        if (!sunflowerPlaced) {
+          reticle.visible = false;
 
-        // If we have a hit test source, get its results for the frame
-        // and use the pose to display a reticle in the scene.
-        if (xrHitTestSource && pose) {
-          let hitTestResults = frame.getHitTestResults(xrHitTestSource);
-          if (hitTestResults.length > 0) {
-            let pose = hitTestResults[0].getPose(xrRefSpace);
-            reticle.visible = true;
-            reticle.matrix = pose.transform.matrix;
-            reticleHitTestResult = hitTestResults[0];
+          // Hit test for the reticle if sunflower is not placed
+          if (xrHitTestSource && pose) {
+            let hitTestResults = frame.getHitTestResults(xrHitTestSource);
+            if (hitTestResults.length > 0) {
+              let pose = hitTestResults[0].getPose(xrRefSpace);
+              reticle.visible = true;
+              reticle.matrix = pose.transform.matrix;
+              reticleHitTestResult = hitTestResults[0];
+            }
           }
         }
 
+        // Update anchored objects
         for (const {anchoredObject, anchor} of anchoredObjects) {
-          // only update the object's position if it's still in the list
-          // of frame.trackedAnchors
           if (!frame.trackedAnchors.has(anchor)) {
             continue;
           }
@@ -216,15 +208,11 @@
         }
 
         scene.startFrame();
-
         session.requestAnimationFrame(onXRFrame);
-
         scene.drawXRFrame(frame, pose);
-
         scene.endFrame();
       }
 
-      // Start the XR application.
       initXR();
     </script>
   </body>
