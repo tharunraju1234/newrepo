@@ -56,7 +56,7 @@
       let reticleHitTestResult = null;
 
       // Audio setup
-      let audio = new Audio('https://res.cloudinary.com/dlmobykjg/video/upload/v1726898877/amen-break-no-copyright-remake-120bpm-25924_nngqba.mp3');
+      let audio = new Audio('path-to-your-audio-file.mp3');
       audio.loop = true;  // Loop the music if desired
 
       // Simple drop shadow to help ground the object.
@@ -88,6 +88,12 @@
             xrButton.enabled = supported;
           });
         }
+
+        // Add event listener to the Back button to stop the audio when clicked
+        document.querySelector('.back').addEventListener('click', () => {
+          audio.pause();
+          audio.currentTime = 0;  // Reset playback position
+        });
       }
 
       function onRequestSession() {
