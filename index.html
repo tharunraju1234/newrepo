@@ -88,6 +88,12 @@
             xrButton.enabled = supported;
           });
         }
+
+        // Add event listener to the Back button to stop the audio when clicked
+        document.querySelector('.back').addEventListener('click', () => {
+          audio.pause();
+          audio.currentTime = 0;  // Reset playback position
+        });
       }
 
       function onRequestSession() {
